@@ -7,15 +7,15 @@ const CURRENT_USER_KEY = "current_user"
 const initializeUsers = () => {
   const existingUsers = localStorage.getItem(USERS_KEY)
   if (!existingUsers) {
-    const defaultAdmin: User = {
-      id: "admin-1",
-      email: "admin@example.com",
-      password: "admin123",
-      name: "System Admin",
-      role: "admin",
-      createdAt: new Date().toISOString(),
-    }
-    localStorage.setItem(USERS_KEY, JSON.stringify([defaultAdmin]))
+    // const defaultAdmin: User = {
+    //   id: "admin-1",
+    //   email: "admin@example.com",
+    //   password: "admin123",
+    //   name: "System Admin",
+    //   role: "admin",
+    //   createdAt: new Date().toISOString(),
+    // }
+    // localStorage.setItem(USERS_KEY, JSON.stringify([defaultAdmin]))
   }
 }
 
@@ -43,33 +43,34 @@ export const registerUser = (
     return { success: false, message: "User with this email already exists" }
   }
 
-  const newUser: User = {
-    id: `${role}-${Date.now()}`,
-    email,
-    password,
-    name,
-    role,
-    createdAt: new Date().toISOString(),
-  }
+  // const newUser: User = {
+  //   // id: `${role}-${Date.now()}`,
+  //   // email,
+  //   // password,
+  //   // name,
+  //   // role,
+  //   // createdAt: new Date().toISOString(),
+  // }
 
-  users.push(newUser)
+  // users.push(newUser)
   saveUsers(users)
 
-  return { success: true, message: "Registration successful", user: newUser }
+  return { success: true, message: "Registration successful"}//, user: newUser }
+
 }
 
 export const loginUser = (email: string, password: string): { success: boolean; message: string; user?: User } => {
-  const users = getUsers()
-  const user = users.find((u) => u.email === email && u.password === password)
+  // const users = getUsers()
+  // const user = users.find((u) => u.email === email && u.password === password)
 
-  if (!user) {
-    return { success: false, message: "Invalid email or password" }
-  }
+  // if (!user) {
+  //   return { success: false, message: "Invalid email or password" }
+  // }
 
-  // Store current user
-  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
+  // // Store current user
+  // localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user))
 
-  return { success: true, message: "Login successful", user }
+  return { success: true, message: "Login successful"}//,user }
 }
 
 export const getCurrentUser = (): User | null => {
