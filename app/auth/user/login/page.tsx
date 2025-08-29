@@ -11,13 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuthStore } from "@/store/useStore"
 
 export default function UserLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { login } = useAuthStore()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,9 +27,9 @@ export default function UserLoginPage() {
     setLoading(true)
 
     try {
-      const result = await login(email, password)
+      const result = await login(email, password, "user")
       if (result.success) {
-        router.push("/")
+        router.push("/events")
       } else {
         setError(result.message)
       }

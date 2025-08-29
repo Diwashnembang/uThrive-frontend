@@ -2,21 +2,49 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getUsers } from "@/lib/auth"
 import { getEvents, getEventRegistrations, deleteUser, deleteEvent } from "@/lib/data"
 import type { User, Event, EventRegistration } from "@/types"
+import { useAuthStore } from "@/store/useStore"
+import { useServiceProviders } from "@/hooks/useServiceProviders"
+import Cookies from "js-cookie"
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout } = useAuthStore()
+  const {unApprovedServiceProviders , fetchunApprovedServiceProviders,fetchApprovedServieProviders , approvedServiceProviders} = useServiceProviders() 
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [registrations, setRegistrations] = useState<EventRegistration[]>([])
   const [loading, setLoading] = useState(true)
+  // Add approve/disapprove handlers
+const approveProvider = async (providerId: string) => {
+  try {
+    const res = await fetch(
+      process.env.NEXT_PUBLIC_API_URL + "admin/approveServiceProvider",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Cookies.get("token")}`,
+        },
+        body: JSON.stringify({ providerId }),
+      }
+    )
+    const data = await res.json()
+    if (res.ok) {
+      await fetchunApprovedServiceProviders()
+    } else {
+      alert(data.message || "Failed to approve provider")
+    }
+  } catch (err) {
+    alert("An error occurred while approving provider")
+  }
+}
+
 
   useEffect(() => {
     if (!user) {
@@ -33,6 +61,8 @@ export default function AdminDashboard() {
     setUsers(getUsers())
     setEvents(getEvents())
     setRegistrations(getEventRegistrations())
+    fetchApprovedServieProviders();
+    fetchunApprovedServiceProviders();
     setLoading(false)
   }, [user, router])
 
@@ -60,7 +90,7 @@ export default function AdminDashboard() {
   }
 
   const regularUsers = users.filter((u) => u.role === "user")
-  const serviceProviders = users.filter((u) => u.role === "service_provider")
+  const serviceProviders = users.filter((u) => u.role === "serviceProvider")
   const admins = users.filter((u) => u.role === "admin")
 
   return (
@@ -165,13 +195,74 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
+          {/* Unapproved Service Providers */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Unapproved Service Providers</CardTitle>
+              <CardDescription>Review and approve/disapprove new service providers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {unApprovedServiceProviders && unApprovedServiceProviders.length > 0 ? (
+                  unApprovedServiceProviders.map((provider: any) => (
+                    <div key={provider.id} className="flex items-center justify-between p-2 bg-yellow-50 rounded">
+                      <div>
+                        <p className="font-medium">{provider.businessName || provider.name}</p>
+                        <p className="text-sm text-gray-600">{provider.email}</p>
+                        <p className="text-xs text-gray-500">{provider.phone}</p>
+                        <p className="text-xs text-gray-500">{provider.address}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => approveProvider(provider.id)}>
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() =>// disapproveProvider(provider.id)
+                        alert("Disapprove function not implemented yet")}>
+                          Disapprove
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">No unapproved service providers</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Approved Service Providers */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Approved Service Providers</CardTitle>
+              <CardDescription>List of all approved service providers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {approvedServiceProviders && approvedServiceProviders.length > 0 ? (
+                  approvedServiceProviders.map((provider: any) => (
+                    <div key={provider.id} className="flex items-center justify-between p-2 bg-green-50 rounded">
+                      <div>
+                        <p className="font-medium">{provider.businessName || provider.name}</p>
+                        <p className="text-sm text-gray-600">{provider.email}</p>
+                        <p className="text-xs text-gray-500">{provider.phone}</p>
+                        <p className="text-xs text-gray-500">{provider.address}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">No approved service providers</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Events Management */}
           <Card>
             <CardHeader>
               <CardTitle>Events Management</CardTitle>
               <CardDescription>Monitor and manage all events on the platform</CardDescription>
             </CardHeader>
-            <CardContent>
+            {/* <CardContent>
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {events.map((event) => {
                   const eventRegistrations = registrations.filter((r) => r.eventId === event.id)
@@ -197,10 +288,35 @@ export default function AdminDashboard() {
                 })}
                 {events.length === 0 && <p className="text-gray-500 text-sm">No events created yet</p>}
               </div>
-            </CardContent>
+            </CardContent> */}
           </Card>
         </div>
       </div>
     </div>
   )
 }
+
+
+// const disapproveProvider = async (providerId: string) => {
+//   try {
+//     const res = await fetch(
+//       process.env.NEXT_PUBLIC_API_URL + "admin/disapproveServiceProvider",
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${Cookies.get("token")}`,
+//         },
+//         body: JSON.stringify({ providerId }),
+//       }
+//     )
+//     const data = await res.json()
+//     if (res.ok) {
+//       await fetchunApprovedServiceProviders()
+//     } else {
+//       alert(data.message || "Failed to disapprove provider")
+//     }
+//   } catch (err) {
+//     alert("An error occurred while disapproving provider")
+//   }
+// }

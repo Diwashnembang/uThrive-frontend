@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
+import AuthInitializer from "@/components/AuthInitializer"
 
 export const metadata: Metadata = {
   title: "Multi-Role Event Platform",
@@ -28,7 +29,7 @@ html {
         `}</style>
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthInitializer>{children}</AuthInitializer>
       </body>
     </html>
   )

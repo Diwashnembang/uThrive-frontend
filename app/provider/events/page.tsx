@@ -1,10 +1,10 @@
 "use client"
 
 import type React from "react"
+import Cookies from "js-cookie";
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,17 +12,19 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { getEvents, saveEvents, getEventRegistrations } from "@/lib/data"
-import type { Event, EventRegistration } from "@/types"
+// import { getEvents, saveEvents, getEventRegistrations } from "@/lib/data"
+import type { CreateEventInput, Event, EventRegistration } from "@/types"
+import { useAuthStore } from "@/store/useStore"
+import { useCreateEvent } from "@/hooks/useEvents";
 
 export default function ProviderEventsPage() {
-  const { user, logout } = useAuth()
+  const { user, logout } = useAuthStore()
   const router = useRouter()
-  const [events, setEvents] = useState<Event[]>([])
-  const [registrations, setRegistrations] = useState<EventRegistration[]>([])
+  const { registrations, createEvent, error: createEventError, events, setEvents, getProviderEvents } = useCreateEvent()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hydrated, setHydrated] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -32,26 +34,34 @@ export default function ProviderEventsPage() {
   })
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
-
+  // New state for expanded event (modal)
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
+useEffect(() => {
+    // This ensures we don't run redirect logic until _app.tsx has tried setting user
+    setHydrated(true);
+  }, []);
   useEffect(() => {
-    if (!user) {
-      router.push("/auth/provider/login")
-      return
+    if (!hydrated) return;
+    const fetchData = async () => {
+      console.log("user info from provider event" , user)
+      if (!user) {
+        router.push("/auth/provider/login")
+        return
+      }
+
+      if (user.role !== 'serviceProvider' as typeof user.role) {
+        router.push("/")
+        return
+      }
+
+      const res = await loadData()
     }
+    fetchData()
+  }, [user, router, hydrated])
 
-    if (user.role !== "service_provider") {
-      router.push("/")
-      return
-    }
-
-    loadData()
-  }, [user, router])
-
-  const loadData = () => {
-    const allEvents = getEvents()
-    const providerEvents = allEvents.filter((event) => event.serviceProviderId === user?.id)
-    setEvents(providerEvents)
-    setRegistrations(getEventRegistrations())
+  const loadData = async () => {
+    await getProviderEvents()
+    // setRegistrations(getEventRegistrations())
     setLoading(false)
   }
 
@@ -76,7 +86,7 @@ export default function ProviderEventsPage() {
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
@@ -91,51 +101,54 @@ export default function ProviderEventsPage() {
       return
     }
 
-    const allEvents = getEvents()
+    // const allEvents = getEvents()
 
     if (editingEvent) {
       // Update existing event
-      const updatedEvents = allEvents.map((event) =>
-        event.id === editingEvent.id
-          ? {
-              ...event,
-              name: formData.name,
-              description: formData.description,
-              date: formData.date,
-              location: formData.location,
-              maxParticipants: formData.maxParticipants ? Number.parseInt(formData.maxParticipants) : undefined,
-            }
-          : event,
-      )
-      saveEvents(updatedEvents)
+      // const updatedEvents = allEvents.map((event) =>
+      //   event.id === editingEvent.id
+      //     ? {
+      //         ...event,
+      //         name: formData.name,
+      //         description: formData.description,
+      //         date: formData.date,
+      //         location: formData.location,
+      //         maxParticipants: formData.maxParticipants ? Number.parseInt(formData.maxParticipants) : undefined,
+      //       }
+      //     : event,
+      // )
+      // // saveEvents(updatedEvents)
       setSuccess("Event updated successfully!")
     } else {
       // Create new event
-      const newEvent: Event = {
-        id: `event-${Date.now()}`,
-        name: formData.name,
+      const newEvent: CreateEventInput = {
+        Name: formData.name,
         description: formData.description,
         date: formData.date,
         location: formData.location,
         serviceProviderId: user!.id,
-        serviceProviderName: user!.name,
         maxParticipants: formData.maxParticipants ? Number.parseInt(formData.maxParticipants) : undefined,
-        currentParticipants: 0,
-        createdAt: new Date().toISOString(),
       }
-      allEvents.push(newEvent)
-      saveEvents(allEvents)
-      setSuccess("Event created successfully!")
+      try{
+        const res = await createEvent(newEvent);
+    if (res.success) {
+      alert("Event created!");
+    } else {
+      alert(res.message);
     }
-
-    loadData()
+      }catch(err){
+        console.log(err)
+      }
+    }
+    console.log(events)
+    // loadData()
     resetForm()
   }
 
   const handleEdit = (event: Event) => {
     setFormData({
-      name: event.name,
-      description: event.description,
+      name: event.Name,
+      description: event.description ?? "",
       date: event.date,
       location: event.location,
       maxParticipants: event.maxParticipants?.toString() || "",
@@ -145,20 +158,20 @@ export default function ProviderEventsPage() {
   }
 
   const handleDelete = (eventId: string) => {
-    if (confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
-      const allEvents = getEvents()
-      const updatedEvents = allEvents.filter((event) => event.id !== eventId)
-      saveEvents(updatedEvents)
-      loadData()
-      setSuccess("Event deleted successfully!")
-    }
+    // if (confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
+    //   const allEvents = getEvents()
+    //   const updatedEvents = allEvents.filter((event) => event.id !== eventId)
+    //   saveEvents(updatedEvents)
+    //   loadData()
+    //   setSuccess("Event deleted successfully!")
+    // }
   }
 
   if (loading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>
   }
 
-  if (!user || user.role !== "service_provider") {
+  if (!user || user.role !== "serviceProvider") {
     return null
   }
 
@@ -207,7 +220,7 @@ export default function ProviderEventsPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Event Name *</Label>
+                    <Label htmlFor="Name">Event Name *</Label>
                     <Input
                       id="name"
                       name="name"
@@ -295,14 +308,20 @@ export default function ProviderEventsPage() {
               ) : (
                 <div className="space-y-4">
                   {events.map((event) => {
-                    const eventRegistrations = registrations.filter((r) => r.eventId === event.id)
+                    const eventRegistrations = registrations.filter((r) => String(r.eventId) === String(event.id))
                     const isUpcoming = new Date(event.date) > new Date()
+                    const isExpanded = expandedEventId === event.id
 
                     return (
                       <div key={event.id} className="p-4 border rounded-lg">
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <h3 className="text-lg font-semibold">{event.name}</h3>
+                            <h3 className="text-lg font-semibold cursor-pointer" onClick={() => setExpandedEventId(isExpanded ? null : event.id)}>
+                              {event.Name}
+                              <Button size="sm" variant="secondary" className="ml-2" onClick={() => setExpandedEventId(isExpanded ? null : event.id)}>
+                                {isExpanded ? "Hide Confirmed Users" : "Show Confirmed Users"}
+                              </Button>
+                            </h3>
                             <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
                               <span>📅 {new Date(event.date).toLocaleString()}</span>
                               <span>📍 {event.location}</span>
@@ -334,6 +353,24 @@ export default function ProviderEventsPage() {
                             Created {new Date(event.createdAt).toLocaleDateString()}
                           </span>
                         </div>
+
+                        {/* Confirmed Users Section */}
+                        {isExpanded && (
+                          <div className="mt-4 p-4 bg-gray-100 rounded">
+                            <h4 className="font-semibold mb-2">Confirmed Users ({event.ConfirmedUsers?.length || 0})</h4>
+                            {event.ConfirmedUsers && event.ConfirmedUsers.length > 0 ? (
+                              <ul className="list-disc pl-5">
+                                {event.ConfirmedUsers.map((user) => (
+                                  <li key={user.id} className="mb-1">
+                                    <span className="font-medium">{user.name}</span> (<span className="text-gray-600">{user.email}</span>)
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-gray-500">No confirmed users yet.</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -342,6 +379,7 @@ export default function ProviderEventsPage() {
             </CardContent>
           </Card>
         </div>
+  {/* Removed duplicate event rendering block */}
       </div>
     </div>
   )

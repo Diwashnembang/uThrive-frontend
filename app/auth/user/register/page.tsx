@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuthStore } from "@/store/useStore"
 
 export default function UserRegisterPage() {
   const [formData, setFormData] = useState({
@@ -21,7 +22,7 @@ export default function UserRegisterPage() {
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
+  const { register } = useAuthStore() 
   const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

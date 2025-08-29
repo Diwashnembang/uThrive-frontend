@@ -4,9 +4,30 @@ import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
+import { useAuthStore } from "@/store/useStore"
+import { useEffect } from "react"
+import Cookie from 'js-cookie';
+import { User, UserRole } from "@/types"
+import { jwtDecode } from "jwt-decode"
+import type { TokenPayload } from "@/store/useStore"
 
 export default function HomePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, setUser} = useAuthStore()
+
+  useEffect(() => {
+
+    let token : string | undefined = Cookie.get("token")
+    if(token){
+      const userInfo = jwtDecode<TokenPayload>(token);
+      const user : User= {
+        id : userInfo.id,
+        email :  userInfo.sub,
+        name: userInfo.name,
+        role: userInfo.role as UserRole,
+      }
+      setUser(user); 
+    }
+  }, [])
 
   if (user) {
     return (
@@ -34,7 +55,7 @@ export default function HomePage() {
               </Card>
             )}
 
-            {user.role === "service_provider" && (
+            {user.role === "serviceProvider" && (
               <Card>
                 <CardHeader>
                   <CardTitle>Manage Events</CardTitle>

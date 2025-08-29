@@ -5,13 +5,13 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuthStore } from "@/store/useStore"
 
 export default function ProviderRegisterPage() {
   const [formData, setFormData] = useState({
@@ -21,10 +21,12 @@ export default function ProviderRegisterPage() {
     confirmPassword: "",
     businessName: "",
     description: "",
+    phone: "",
+    address: "",
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
+  const { register } = useAuthStore()
   const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -59,7 +61,17 @@ export default function ProviderRegisterPage() {
     try {
       // Use business name as the display name for service providers
       const displayName = `${formData.name} (${formData.businessName})`
-      const result = await register(formData.email, formData.password, displayName, "service_provider")
+      // Use correct role string for UserRole
+      const result = await register(
+        formData.email,
+        formData.password,
+        displayName,
+        "serviceProvider", // correct UserRole value
+        formData.businessName,
+        formData.phone,
+        formData.address,
+        formData.description
+      )
       if (result.success) {
         router.push("/")
       } else {
@@ -123,6 +135,32 @@ export default function ProviderRegisterPage() {
                   placeholder="Enter your business email"
                   value={formData.email}
                   onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="Enter your phone number"
+                  value={formData.phone || ""}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">Business Address</Label>
+                <Textarea
+                  id="address"
+                  name="address"
+                  placeholder="Enter your business address"
+                  value={formData.address || ""}
+                  onChange={handleChange}
+                  rows={2}
                   required
                 />
               </div>

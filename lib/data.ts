@@ -115,7 +115,7 @@ export const initializeDummyEvents = () => {
   const dummyEvents: Event[] = [
     {
       id: "event-1",
-      name: "Tech Conference 2025",
+      ame: "Tech Conference 2025",
       description:
         "Join us for the biggest tech conference of the year! Learn about the latest trends in AI, web development, and cloud computing from industry experts.",
       date: "2025-03-15T09:00:00",
@@ -128,7 +128,7 @@ export const initializeDummyEvents = () => {
     },
     {
       id: "event-2",
-      name: "Cooking Workshop: Italian Cuisine",
+      Name: "Cooking Workshop: Italian Cuisine",
       description:
         "Learn to make authentic Italian pasta and sauces from a professional chef. All ingredients and equipment provided.",
       date: "2025-02-20T14:00:00",
@@ -141,7 +141,7 @@ export const initializeDummyEvents = () => {
     },
     {
       id: "event-3",
-      name: "Yoga & Meditation Retreat",
+      Name: "Yoga & Meditation Retreat",
       description:
         "A peaceful weekend retreat focusing on mindfulness, yoga practice, and inner peace. Suitable for all levels.",
       date: "2025-04-05T08:00:00",
@@ -154,7 +154,7 @@ export const initializeDummyEvents = () => {
     },
     {
       id: "event-4",
-      name: "Photography Walk: Urban Landscapes",
+      Name: "Photography Walk: Urban Landscapes",
       description:
         "Explore the city through your lens! Learn composition techniques and capture stunning urban photography.",
       date: "2025-02-28T10:00:00",
@@ -167,7 +167,7 @@ export const initializeDummyEvents = () => {
     },
     {
       id: "event-5",
-      name: "Business Networking Mixer",
+      Name: "Business Networking Mixer",
       description:
         "Connect with local entrepreneurs, freelancers, and business professionals. Light refreshments provided.",
       date: "2025-03-08T18:00:00",
@@ -175,12 +175,12 @@ export const initializeDummyEvents = () => {
       maxParticipants: 100,
       currentParticipants: 0,
       serviceProviderId: "provider-5",
-      serviceProviderName: "Business Connect Network",
+      serviceProvidername: "Business Connect Network",
       createdAt: "2025-01-05T00:00:00",
     },
     {
       id: "event-6",
-      name: "Live Jazz Concert",
+      Name: "Live Jazz Concert",
       description: "An evening of smooth jazz featuring local musicians. Enjoy great music in an intimate setting.",
       date: "2025-01-25T20:00:00", // Past event
       location: "Blue Note Jazz Club",
