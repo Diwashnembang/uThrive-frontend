@@ -12,8 +12,9 @@ export function useCreateEvent() {
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
+    console.log("Events updated:", events);
     if (events.length < 0) return;
-    setRegistrations([]); // reset before repopulating
+    setRegistrations([]); // reset ddee repopulating
     events.forEach((event: Event) => {
       if (!event.ConfirmedUsers) return;
       event.ConfirmedUsers.forEach((user) => {
@@ -27,7 +28,9 @@ export function useCreateEvent() {
           },
         ]);
       });
+      event.currentParticipants = event.ConfirmedUsers.length;
     });
+    
   }, [events]);
   const createEvent = useCallback(async (newEvent: any) => {
     setLoading(true);

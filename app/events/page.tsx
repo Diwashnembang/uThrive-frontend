@@ -53,6 +53,11 @@ export default function EventsPage() {
     text: string
   } | null>(null)
   const [processingEventId, setProcessingEventId] = useState<string | null>(null)
+  const [optimisticRegistrations, setOptimisticRegistrations] = useState<
+    Record<string, { isRegistered: boolean; count: number }>
+  >({})
+  const [justRegistered, setJustRegistered] = useState<Set<string>>(new Set())
+  const [justUnregistered, setJustUnregistered] = useState<Set<string>>(new Set())
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
   const [fullScreenEvent, setFullScreenEvent] = useState<Event | null>(null)
@@ -124,10 +129,16 @@ export default function EventsPage() {
 
   const isUserRegistered = (eventId: string) => {
     if (!user) return false
+    if (optimisticRegistrations[eventId]) {
+      return optimisticRegistrations[eventId].isRegistered
+    }
     return registrations.some((reg) => reg.eventId === eventId && reg.userId === user?.id)
   }
 
   const getEventRegistrationCount = (eventId: string) => {
+    if (optimisticRegistrations[eventId]) {
+      return optimisticRegistrations[eventId].count
+    }
     return registrations.filter((reg) => reg.eventId === eventId).length
   }
 
@@ -162,15 +173,84 @@ export default function EventsPage() {
   }
 
   const handleRegister = async (eventId: string) => {
+    if (!user) return
+
     setProcessingEventId(eventId)
-    await registerUserForEvent(eventId)
-    setProcessingEventId(null)
+
+    const currentCount = getEventRegistrationCount(eventId)
+    setOptimisticRegistrations((prev) => ({
+      ...prev,
+      [eventId]: { isRegistered: true, count: currentCount + 1 },
+    }))
+
+    try {
+      const sucesss = await registerUserForEvent(eventId)
+      if  (sucesss){
+      setJustRegistered((prev) => new Set([...prev, eventId]))
+      setMessage({ type: "success", text: "Successfully registered for the event! 🎉" })
+      }
+    } catch (error) {
+      setOptimisticRegistrations((prev) => {
+        const newState = { ...prev }
+        delete newState[eventId]
+        return newState
+      })
+      setMessage({ type: "error", text: "Failed to register for event. Please try again." })
+    } finally {
+      setProcessingEventId(null)
+      // setTimeout(() => {
+      //   setOptimisticRegistrations((prev) => {
+      //     const newState = { ...prev }
+      //     delete newState[eventId]
+      //     return newState
+      //   })
+      // }, 1000)
+    }
   }
 
   const handleUnregister = async (eventId: string) => {
+    if (!user) return
+
     setProcessingEventId(eventId)
-    await unregisterUserFromEvent(eventId)
-    setProcessingEventId(null)
+
+    const currentCount = getEventRegistrationCount(eventId)
+    setOptimisticRegistrations((prev) => ({
+      ...prev,
+      [eventId]: { isRegistered: false, count: Math.max(0, currentCount - 1) },
+    }))
+
+    try {
+      const success = await unregisterUserFromEvent(eventId)
+      if(success){
+
+      // setJustUnregistered((prev) => new Set([...prev, eventId]))
+      setMessage({ type: "success", text: "Successfully unregistered from the event." })
+      }
+
+      // setTimeout(() => {
+      //   setJustUnregistered((prev) => {
+      //     const newSet = new Set(prev)
+      //     newSet.delete(eventId)
+      //     return newSet
+      //   })
+      // }, 2000)
+    } catch (error) {
+      setOptimisticRegistrations((prev) => {
+        const newState = { ...prev }
+        delete newState[eventId]
+        return newState
+      })
+      setMessage({ type: "error", text: "Failed to unregister from event. Please try again." })
+    } finally {
+      setProcessingEventId(null)
+      // setTimeout(() => {
+      //   setOptimisticRegistrations((prev) => {
+      //     const newState = { ...prev }
+      //     delete newState[eventId]
+      //     return newState
+      //   })
+      // }, 1000)
+    }
   }
 
   const toggleLike = (eventId: string) => {
@@ -235,29 +315,29 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="flex flex-col gap-6">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <Sparkles className="h-8 w-8 text-white" />
+                  <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                 </div>
-                <h1 className="text-5xl font-bold text-white">Discover Events</h1>
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">Discover Events</h1>
               </div>
-              <p className="text-xl text-blue-100 max-w-2xl leading-relaxed">
+              <p className="text-lg sm:text-xl text-blue-100 max-w-2xl leading-relaxed">
                 Join exciting events, connect with your community, and make a difference together
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               {user ? (
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                   <div className="flex items-center gap-3 px-4 py-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/30">
-                    <Avatar className="h-10 w-10 ring-2 ring-white/30">
-                      <AvatarFallback className="bg-blue-500 text-white text-lg font-semibold">
+                    <Avatar className="h-8 w-8 sm:h-10 sm:w-10 ring-2 ring-white/30">
+                      <AvatarFallback className="bg-blue-500 text-white text-sm sm:text-lg font-semibold">
                         {user.name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="font-semibold text-white">{user.name}</span>
+                    <span className="font-semibold text-white text-sm sm:text-base">{user.name}</span>
                   </div>
                   <Button
                     onClick={logout}
@@ -268,28 +348,28 @@ export default function EventsPage() {
                   </Button>
                 </div>
               ) : (
-                <>
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
-                    onClick={() => router.push("/auth/user/login")}
+                    onClick={() => router.push("/login")}
                     variant="outline"
                     className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
                   >
                     Login
                   </Button>
                   <Button
-                    onClick={() => router.push("/auth/user/register")}
+                    onClick={() => router.push("/signup")}
                     className="bg-white text-blue-600 hover:bg-blue-50 font-semibold shadow-lg"
                   >
                     Sign Up
                   </Button>
-                </>
+                </div>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {message && (
           <div className="mb-8">
             <Alert
@@ -301,54 +381,52 @@ export default function EventsPage() {
           </div>
         )}
 
-        <Card className="mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-          <CardContent className="pt-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <Input
-                    placeholder="Search events by name, description, location, or organizer..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-12 pr-4 py-4 text-base border-slate-200 focus:border-blue-400 focus:ring-blue-400 bg-white"
-                  />
-                </div>
+        <Card className="mb-6 sm:mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex flex-col gap-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                <Input
+                  placeholder="Search events..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 sm:pl-12 pr-4 py-3 sm:py-4 text-sm sm:text-base border-slate-200 focus:border-blue-400 focus:ring-blue-400 bg-white"
+                />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   variant={filterType === "all" ? "default" : "outline"}
                   onClick={() => setFilterType("all")}
-                  size="lg"
-                  className={
+                  size="sm"
+                  className={`${
                     filterType === "all"
                       ? "bg-blue-600 hover:bg-blue-700"
                       : "border-slate-200 hover:bg-blue-50 hover:text-blue-700"
-                  }
+                  } text-sm sm:text-base py-2 sm:py-3`}
                 >
                   All Events
                 </Button>
                 <Button
                   variant={filterType === "upcoming" ? "default" : "outline"}
                   onClick={() => setFilterType("upcoming")}
-                  size="lg"
-                  className={
+                  size="sm"
+                  className={`${
                     filterType === "upcoming"
                       ? "bg-blue-600 hover:bg-blue-700"
                       : "border-slate-200 hover:bg-blue-50 hover:text-blue-700"
-                  }
+                  } text-sm sm:text-base py-2 sm:py-3`}
                 >
                   Upcoming
                 </Button>
                 <Button
                   variant={filterType === "past" ? "default" : "outline"}
                   onClick={() => setFilterType("past")}
-                  size="lg"
-                  className={
+                  size="sm"
+                  className={`${
                     filterType === "past"
                       ? "bg-blue-600 hover:bg-blue-700"
                       : "border-slate-200 hover:bg-blue-50 hover:text-blue-700"
-                  }
+                  } text-sm sm:text-base py-2 sm:py-3`}
                 >
                   Past Events
                 </Button>
@@ -357,21 +435,21 @@ export default function EventsPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-6 sm:gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {filteredEvents.length === 0 ? (
-            <div className="col-span-full text-center py-20">
-              <div className="max-w-md mx-auto space-y-6">
-                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center">
-                  <Calendar className="h-10 w-10 text-blue-600" />
+            <div className="col-span-full text-center py-12 sm:py-20">
+              <div className="max-w-md mx-auto space-y-4 sm:space-y-6 px-4">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center">
+                  <Calendar className="h-8 w-8 sm:h-10 sm:w-10 text-blue-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800">
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800">
                   {events.length === 0
                     ? "No events available yet"
                     : searchTerm || filterType !== "all"
                       ? "No events match your criteria"
                       : "No events found"}
                 </h3>
-                <p className="text-slate-600 text-lg">
+                <p className="text-slate-600 text-base sm:text-lg">
                   {events.length === 0
                     ? "Check back soon for exciting events!"
                     : "Try adjusting your search or filter settings."}
@@ -407,38 +485,40 @@ export default function EventsPage() {
                   key={event.id}
                   className="group hover:shadow-2xl transition-all duration-500 border-0 bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-[1.02] overflow-hidden animate-fade-in-up"
                 >
-                  <CardHeader className="pb-4 bg-gradient-to-r from-blue-50 to-purple-50">
+                  <CardHeader className="pb-3 sm:pb-4 bg-gradient-to-r from-blue-50 to-purple-50">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-xl font-bold text-slate-800 group-hover:text-blue-700 transition-colors line-clamp-2">
+                        <CardTitle className="text-lg sm:text-xl font-bold text-slate-800 group-hover:text-blue-700 transition-colors line-clamp-2">
                           {event.Name}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2 mt-3">
+                        <CardDescription className="flex items-center gap-2 mt-2 sm:mt-3">
                           <div className="p-1 bg-blue-100 rounded-lg">
-                            <Building2 className="h-4 w-4 text-blue-600" />
+                            <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                           </div>
-                          <span className="font-semibold text-slate-700">{event.serviceProvider.name}</span>
+                          <span className="font-semibold text-slate-700 text-sm sm:text-base">
+                            {event.serviceProvider.name}
+                          </span>
                         </CardDescription>
                       </div>
-                      <div className="flex flex-col gap-2 items-end">
+                      <div className="flex flex-col gap-1 sm:gap-2 items-end">
                         {isRegistered && (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 font-semibold">
-                            <UserCheck className="h-3 w-3 mr-1" />
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 font-semibold text-xs">
+                            <UserCheck className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
                             Registered
                           </Badge>
                         )}
                         {isFull && !isRegistered && (
-                          <Badge variant="destructive" className="font-semibold">
+                          <Badge variant="destructive" className="font-semibold text-xs">
                             Full
                           </Badge>
                         )}
                         {isPast && (
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-semibold">
+                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-semibold text-xs">
                             Past Event
                           </Badge>
                         )}
                         {isUpcoming && !isFull && !isRegistered && (
-                          <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-semibold">
+                          <Badge className="bg-purple-100 text-purple-800 border-purple-200 font-semibold text-xs">
                             Available
                           </Badge>
                         )}
@@ -446,47 +526,52 @@ export default function EventsPage() {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-6 p-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <Calendar className="h-4 w-4 text-blue-600" />
+                  <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+                        <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+                          <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                         </div>
-                        <span className="font-semibold text-slate-700">
+                        <span className="font-semibold text-sm sm:text-base">
                           {new Date(event.date).toLocaleDateString("en-US", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
+                            weekday: "short",
+                            month: "short",
                             day: "numeric",
                           })}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 bg-indigo-100 rounded-lg">
-                          <Clock className="h-4 w-4 text-indigo-600" />
+                      <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+                        <div className="p-1.5 sm:p-2 bg-indigo-100 rounded-lg">
+                          <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-indigo-600" />
                         </div>
-                        <span className="font-medium text-slate-600">
+                        <span className="font-medium text-sm sm:text-base">
                           {new Date(event.date).toLocaleTimeString("en-US", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <MapPin className="h-4 w-4 text-purple-600" />
+                      <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+                        <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg">
+                          <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
                         </div>
-                        <span className="line-clamp-1 font-medium text-slate-600">{event.location}</span>
+                        <span className="line-clamp-1 font-medium text-sm sm:text-sm">{event.location}</span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <Users className="h-4 w-4 text-blue-600" />
+                      <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+                        <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+                          <Users className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                         </div>
                         <span>
-                          <span className="font-bold text-blue-700 text-lg">{event.currentParticipants}</span>
-                          <span className="text-slate-600 font-medium"> registered</span>
+                          <span
+                            className={`font-bold text-blue-700 text-base transition-all duration-300 ${
+                              optimisticRegistrations[event.id] ? "scale-110 text-green-600" : ""
+                            }`}
+                          >
+                            {event.currentParticipants}
+                          </span>
+                          <span className="text-slate-600 font-medium text-xs sm:text-sm"> registered</span>
                           {event.maxParticipants && (
-                            <span className="text-slate-500"> / {event.maxParticipants} max</span>
+                            <span className="text-slate-500 text-xs sm:text-sm"> / {event.maxParticipants} max</span>
                           )}
                         </span>
                       </div>
@@ -494,17 +579,17 @@ export default function EventsPage() {
 
                     {event.description && (
                       <div className="space-y-3">
-                        <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-5 rounded-xl border-l-4 border-blue-300 shadow-sm">
+                        <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-4 sm:p-5 rounded-xl border-l-4 border-blue-300 shadow-sm">
                           <div className="flex items-start gap-3">
                             <div className="p-1.5 bg-blue-100 rounded-lg mt-0.5">
-                              <Sparkles className="h-4 w-4 text-blue-600" />
+                              <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                             </div>
                             <div className="flex-1 space-y-2">
                               <h4 className="font-semibold text-slate-800 text-sm uppercase tracking-wide">
                                 Event Description
                               </h4>
                               <p
-                                className={`text-slate-700 leading-relaxed ${
+                                className={`text-slate-700 leading-relaxed text-sm ${
                                   !isDescriptionExpanded && needsDescriptionToggle ? "line-clamp-3" : ""
                                 }`}
                               >
@@ -585,7 +670,7 @@ export default function EventsPage() {
                       </div>
                     )}
 
-                    <div className="flex flex-col gap-3 pt-4">
+                    <div className="flex flex-col gap-3 pt-3 sm:pt-4">
                       <Button
                         variant="outline"
                         onClick={() => toggleCardExpansion(event.id)}
@@ -598,39 +683,39 @@ export default function EventsPage() {
                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
 
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                        <div className="flex items-center gap-4">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 sm:pt-4 border-t border-slate-100">
+                        <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4">
                           <button
                             onClick={() => toggleLike(event.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
+                            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all duration-300 ${
                               isLiked
                                 ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg"
                                 : "bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600"
                             }`}
                           >
-                            <Heart className={`h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
-                            <span className="font-semibold">{likes}</span>
+                            <Heart className={`h-3 w-3 sm:h-4 sm:w-4 ${isLiked ? "fill-current" : ""}`} />
+                            <span className="font-semibold text-sm">{likes}</span>
                           </button>
 
                           <button
                             onClick={() => setFullScreenEvent(event)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-all duration-300"
+                            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-all duration-300"
                           >
-                            <MessageCircle className="h-4 w-4" />
-                            <span className="font-semibold">{comments.length}</span>
+                            <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="font-semibold text-sm">{comments.length}</span>
                           </button>
                         </div>
 
-                        <div className="relative">
+                        <div className="relative flex justify-center sm:justify-end">
                           <button
                             onClick={() => setShowShareMenu(showShareMenu === event.id ? null : event.id)}
                             className="p-2 rounded-xl bg-gradient-to-r from-emerald-100 to-teal-100 hover:from-emerald-200 hover:to-teal-200 text-emerald-600 transition-all duration-300"
                           >
-                            <Share2 className="h-4 w-4" />
+                            <Share2 className="h-3 w-3 sm:h-4 sm:w-4" />
                           </button>
 
                           {showShareMenu === event.id && (
-                            <div className="absolute right-0 top-12 bg-white rounded-xl shadow-2xl border border-slate-200 p-2 z-10 min-w-[200px]">
+                            <div className="absolute right-0 sm:right-0 top-12 bg-white rounded-xl shadow-2xl border border-slate-200 p-2 z-10 min-w-[180px] sm:min-w-[200px]">
                               <button
                                 onClick={() => shareEvent(event, "copy")}
                                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 rounded-lg transition-colors"
@@ -658,48 +743,81 @@ export default function EventsPage() {
                       </div>
 
                       {isPast ? (
-                        <Button disabled className="w-full bg-slate-200 text-slate-500 font-semibold">
+                        <Button
+                          disabled
+                          className="w-full bg-slate-200 text-slate-500 font-semibold text-sm sm:text-base py-2 sm:py-3"
+                        >
                           Event Ended
                         </Button>
                       ) : !user ? (
                         <Button
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg"
-                          onClick={() => router.push("/auth/user/login")}
+                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg text-sm sm:text-base py-2 sm:py-3"
+                          onClick={() => router.push("/login")}
                         >
                           Login to Register
                         </Button>
                       ) : isRegistered ? (
-                        <div className="space-y-3">
-                          <Button disabled className="w-full bg-blue-100 text-blue-800 border-blue-200 font-semibold">
-                            <UserCheck className="h-4 w-4 mr-2" />
-                            You're Registered!
+                        <div className="space-y-2 sm:space-y-3">
+                          <Button
+                            disabled
+                            className={`w-full font-semibold text-sm sm:text-base py-2 sm:py-3 transition-all duration-500 ${
+                              justRegistered.has(event.id)
+                                ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg animate-pulse"
+                                : "bg-blue-100 text-blue-800 border-blue-200"
+                            }`}
+                          >
+                            <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                            {justRegistered.has(event.id) ? "Registration Confirmed! ✨" : "You're Registered!"}
                           </Button>
                           <Button
                             variant="outline"
-                            className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 font-semibold bg-transparent"
+                            className={`w-full font-semibold bg-transparent text-sm sm:text-base py-2 sm:py-3 transition-all duration-300 ${
+                              justUnregistered.has(event.id)
+                                ? "text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200 animate-pulse"
+                                : "text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                            }`}
                             onClick={() => handleUnregister(event.id)}
                             disabled={isProcessing}
                           >
-                            {isProcessing ? "Processing..." : "Unregister"}
+                            {isProcessing ? (
+                              <div className="flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-current"></div>
+                                Unregistering...
+                              </div>
+                            ) : justUnregistered.has(event.id) ? (
+                              "Unregistered Successfully ✓"
+                            ) : (
+                              "Unregister"
+                            )}
                           </Button>
                         </div>
                       ) : isFull ? (
-                        <Button disabled className="w-full bg-slate-200 text-slate-500 font-semibold">
+                        <Button
+                          disabled
+                          className="w-full bg-slate-200 text-slate-500 font-semibold text-sm sm:text-base py-2 sm:py-3"
+                        >
                           Event Full
                         </Button>
                       ) : (
                         <Button
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg"
+                          className={`w-full font-semibold shadow-lg text-sm sm:text-base py-2 sm:py-3 transition-all duration-300 ${
+                            isProcessing
+                              ? "bg-gradient-to-r from-blue-400 to-purple-400"
+                              : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl hover:scale-[1.02]"
+                          } text-white`}
                           onClick={() => handleRegister(event.id)}
                           disabled={isProcessing}
                         >
                           {isProcessing ? (
                             <div className="flex items-center gap-2">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              Registering...
+                              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                              <span className="animate-pulse">Registering...</span>
                             </div>
                           ) : (
-                            "Register for Event"
+                            <span className="flex items-center gap-2">
+                              <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+                              Register for Event
+                            </span>
                           )}
                         </Button>
                       )}
@@ -713,25 +831,25 @@ export default function EventsPage() {
       </div>
 
       {fullScreenEvent && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-scale-in">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50">
-              <h2 className="text-2xl font-bold text-slate-800">{fullScreenEvent.Name}</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden animate-scale-in">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50">
+              <h2 className="text-lg sm:text-2xl font-bold text-slate-800 pr-4">{fullScreenEvent.Name}</h2>
               <button
                 onClick={() => setFullScreenEvent(null)}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors flex-shrink-0"
               >
-                <X className="h-6 w-6 text-slate-600" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6 text-slate-600" />
               </button>
             </div>
 
-            <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
-              <div className="p-6 space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="h-5 w-5 text-blue-600" />
-                      <span className="font-semibold">
+            <div className="overflow-y-auto max-h-[calc(95vh-80px)] sm:max-h-[calc(90vh-80px)]">
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                      <span className="font-semibold text-sm sm:text-base">
                         {new Date(fullScreenEvent.date).toLocaleDateString("en-US", {
                           weekday: "long",
                           year: "numeric",
@@ -740,60 +858,62 @@ export default function EventsPage() {
                         })}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Clock className="h-5 w-5 text-indigo-600" />
-                      <span className="font-medium">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
+                      <span className="font-medium text-sm sm:text-base">
                         {new Date(fullScreenEvent.date).toLocaleTimeString("en-US", {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-purple-600" />
-                      <span className="font-medium">{fullScreenEvent.location}</span>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                      <span className="font-medium text-sm sm:text-base">{fullScreenEvent.location}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Users className="h-5 w-5 text-emerald-600" />
-                      <span className="font-medium">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                      <span className="font-medium text-sm sm:text-base">
                         {fullScreenEvent.currentParticipants} registered
                         {fullScreenEvent.maxParticipants && ` / ${fullScreenEvent.maxParticipants} max`}
                       </span>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl">
-                      <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
-                        <Building2 className="h-4 w-4" />
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 sm:p-4 rounded-xl">
+                      <h3 className="font-semibold text-slate-800 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                        <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
                         Organized by
                       </h3>
-                      <p className="font-medium text-slate-700">{fullScreenEvent.serviceProvider.name}</p>
-                      <p className="text-sm text-slate-600">{fullScreenEvent.serviceProvider.email}</p>
+                      <p className="font-medium text-slate-700 text-sm sm:text-base">
+                        {fullScreenEvent.serviceProvider.name}
+                      </p>
+                      <p className="text-xs text-slate-600">{fullScreenEvent.serviceProvider.email}</p>
                     </div>
                   </div>
                 </div>
 
                 {fullScreenEvent.description && (
-                  <div className="bg-slate-50 p-6 rounded-xl">
-                    <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                  <div className="bg-slate-50 p-4 sm:p-6 rounded-xl">
+                    <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2 text-sm sm:text-base">
                       <Sparkles className="h-4 w-4" />
                       About This Event
                     </h3>
-                    <p className="text-slate-700 leading-relaxed">{fullScreenEvent.description}</p>
+                    <p className="text-slate-700 leading-relaxed text-sm sm:text-base">{fullScreenEvent.description}</p>
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <h3 className="font-semibold text-slate-800 flex items-center gap-2 text-base sm:text-lg">
                     <MessageCircle className="h-4 w-4" />
                     Comments ({(eventComments[fullScreenEvent.id] || []).length})
                   </h3>
 
                   {user && (
-                    <div className="flex gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-blue-100 text-blue-600 text-sm">
+                    <div className="flex gap-2 sm:gap-3">
+                      <Avatar className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0">
+                        <AvatarFallback className="bg-blue-100 text-blue-600 text-xs sm:text-sm">
                           {user.name.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -803,14 +923,14 @@ export default function EventsPage() {
                           value={newComment}
                           onChange={(e) => setNewComment(e.target.value)}
                           onKeyPress={(e) => e.key === "Enter" && addComment(fullScreenEvent.id)}
-                          className="flex-1"
+                          className="flex-1 text-sm sm:text-base"
                         />
                         <Button
                           onClick={() => addComment(fullScreenEvent.id)}
                           size="sm"
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-3"
                         >
-                          <Send className="h-4 w-4" />
+                          <Send className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       </div>
                     </div>
@@ -843,6 +963,7 @@ export default function EventsPage() {
     </div>
   )
 }
+
 
 
 
