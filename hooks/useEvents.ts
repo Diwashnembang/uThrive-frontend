@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from "react";
 import Cookies from "js-cookie";
 import { Event, EventRegistration, User } from "@/types";
 import { useAuthStore } from "@/store/useStore";
-import { log } from "console";
 
 export function useCreateEvent() {
   const { user: loggedUser } = useAuthStore();
@@ -12,7 +11,6 @@ export function useCreateEvent() {
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    console.log("Events updated:", events);
     if (events.length < 0) return;
     setRegistrations([]); // reset ddee repopulating
     events.forEach((event: Event) => {
