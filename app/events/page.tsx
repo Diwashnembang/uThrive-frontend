@@ -877,7 +877,7 @@ export default function EventsPage() {
                       ) : !user ? (
                         <Button
                           className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg text-sm sm:text-base py-2 sm:py-3"
-                          onClick={() => router.push("/auth/user/login")}
+                          onClick={(e) =>{e.stopPropagation(); router.push("/auth/user/login")}}
                         >
                           Login to Register
                         </Button>
@@ -903,7 +903,10 @@ export default function EventsPage() {
                                 ? "text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200 animate-pulse"
                                 : "text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                             }`}
-                            onClick={() => handleUnregister(event.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnregister(event.id);
+                            }}
                             disabled={isProcessing}
                           >
                             {isProcessing ? (
@@ -932,7 +935,10 @@ export default function EventsPage() {
                               ? "bg-gradient-to-r from-blue-400 to-purple-400"
                               : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:shadow-xl hover:scale-[1.02]"
                           } text-white`}
-                          onClick={() => handleRegister(event.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRegister(event.id);
+                          }}
                           disabled={isProcessing}
                         >
                           {isProcessing ? (
