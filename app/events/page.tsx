@@ -795,7 +795,7 @@ export default function EventsPage() {
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 sm:pt-4 border-t border-slate-100">
                         <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4">
                           <button
-                            onClick={() => toggleLike(event.id)}
+                            onClick={(e) =>{e.stopPropagation() ;toggleLike(event.id)}}
                             className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all duration-300 ${
                               isLiked
                                 ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg"
@@ -825,11 +825,12 @@ export default function EventsPage() {
 
                         <div className="relative flex justify-center sm:justify-end">
                           <button
-                            onClick={() =>
+                            onClick={(e) =>{
+                              e.stopPropagation();
                               setShowShareMenu(
                                 showShareMenu === event.id ? null : event.id
                               )
-                            }
+                            }}
                             className="p-2 rounded-xl bg-gradient-to-r from-emerald-100 to-teal-100 hover:from-emerald-200 hover:to-teal-200 text-emerald-600 transition-all duration-300"
                           >
                             <Share2 className="h-3 w-3 sm:h-4 sm:w-4" />
